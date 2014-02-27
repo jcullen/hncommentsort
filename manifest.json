@@ -1,13 +1,14 @@
 {
   "name": "HN Comment Sort",
-  "version": "0.2",
+  "version": "0.3",
   "manifest_version": 2,
-  "description": "Maps hacker news comments to a backbone collection to facilitate sorting",
+  "description": "Adds the ability to sort comments on hackernews.com",
   "content_scripts": [
     {
       "matches": ["*://news.ycombinator.com/item*"],
-      "js": ["underscore-min.js","jquery-1.8.3.min.js","backbone-min.js","main.js"],
+      "js": ["Array.mergeSort.min.js","jquery-2.1.0.min.js","main.js"],
       "css": ["style.css"]
      }
-  ]
+  ],
+  "web_accessible_resources": ["sort-options.html"]
 }

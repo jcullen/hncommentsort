@@ -1,80 +1,92 @@
-var commentModel = Backbone.Model.extend({});
-var commentCollection = Backbone.Collection.extend({
-  initialize: function() {
-    this.sort_order = -1;
-    this.sort_field = 'index';
-  },
-  // Sort by level then sort by the sort field
-  // Increasing the magnitude of level to be greater then that of the sort field (notibly the timestamp)
-  comparator: function(comment) {
-    return (comment.get('level') + 1) * 10000000000000 + this.sort_order * comment.get(this.sort_field);
-  },
-  model: commentModel
-});
-
-var comments = new commentCollection();
-
-// Using insertAfter to arrange the comments based on their sort order, maintain nesting
-// insertAfter reverses the order, so sort_order in the collection is flipped
-var updatePage = function() {
-  comments.each(function(comment) {
-    comment.get('element').insertAfter(comment.get('parentelement'));
-  });
-};
-
-var commentroot = '<tr id="commentroot"><td class="comhead">Sort: <a href="#" id="sortDateAsc">Newest First</a> | <a href="#" id="sortDateDesc">Oldest First</a> | <a href="#" id="sortOriginal">Original</a></td></tr>';
 $(function() {
-  $(".default:first").parents("tr:eq(1)").before(commentroot);
-  $("#sortDateAsc").click(function(event) {
-    event.preventDefault();
-    comments.sort_order = 1;
-    comments.sort_field = 'timestamp';
-    comments.sort();
-    updatePage();
-    return false;
-  });
-  $("#sortDateDesc").click(function(event) {
-    event.preventDefault();
-    comments.sort_order = -1;
-    comments.sort_field = 'timestamp';
-    comments.sort();
-    updatePage();
-    return false;
-  });
-  $("#sortOriginal").click(function(event) {
-    event.preventDefault();
-    comments.sort_order = -1;
-    comments.sort_field = 'index';
-    comments.sort();
-    updatePage();
-    return false;
-  });
   var now = new Date();
-  var parents = new Array($("#commentroot"));
-  $(".default").each(function(index) {
-    var then = new Date();
-    var level = Math.floor($(this).parent('tr').find('img')[0].width / 40);
-    var element = $(this).parents("tr:eq(1)");
-    parents[level+1] = element;
+  var max_depth = 0;
+  var comment_holder = $('.default:first').parents('tbody:eq(1)');
+  var comments = comment_holder.children().has('font').get();
+  // Maintain a heirarchy of comments
+  var heirarchy = [];
+  var depth = 0;
+  var comhead;
+  var then;
 
-    // username time timetype ago
-    // timetype: minute minutes hour hours day days
-    var comhead = $(".comhead", this).text().split(" ");
-    if(comhead[2].indexOf('minute') != -1) {
+  heirarchy[0] = comment_holder;
+
+  // Load sort-options html onto page
+  $.get(chrome.extension.getURL('/sort-options.html'), function(data) {
+    comment_holder.parent().prepend(data);
+  });
+
+  // Process comments to determine heirarchy and parse timestamp for sorting
+  for (var i = 0; i < comments.length; i++) {
+    // comhead data format: username time timetype ago
+    // possible timetypes: minute minutes hour hours day days
+    comhead = $('.comhead', comments[i]).text().split(' ');
+    then = new Date();
+    // Comment depth is determined by the comments identation, identation is done through an image
+    depth = Math.floor($(comments[i]).find('img')[0].width / 40);
+    heirarchy[depth+1] = comments[i];
+
+    if (depth > max_depth) { max_depth = depth; }
+
+    if (comhead[2].indexOf('minute') != -1) {
       then.setMinutes(now.getMinutes() - comhead[1]);
-    } else if(comhead[2].indexOf('hour') != -1) {
+    } else if (comhead[2].indexOf('hour') != -1) {
       then.setHours(now.getHours() - comhead[1]);
-    } else if(comhead[2].indexOf('day') != -1) {
+    } else if (comhead[2].indexOf('day') != -1) {
       then.setDate(now.getDate() - comhead[1]);
     }
 
-    // Index/level for original order, parentelement to maintain nesting, element to move comment
-    comments.add({
-      index: index,
-      level: level,
-      timestamp: then.getTime(),
-      parentelement: parents[level],
-      element: element
-    });
+    $.data(comments[i], 'date', then);
+    $.data(comments[i], 'depth', depth);
+    $.data(comments[i], 'original_index', i);
+    $.data(comments[i], 'parent', heirarchy[depth]);
+  }
+
+  $(document).on('click', '#sort-date-asc', function(event) {
+    event.preventDefault();
+    sortDate(false);
+    return false;
   });
+
+  $(document).on('click', '#sort-date-desc', function(event) {
+    event.preventDefault();
+    sortDate(true);
+    return false;
+  });
+
+  $(document).on('click', '#sort-original', function(event) {
+    event.preventDefault();
+    comments.mergeSort(function(a, b) {
+      if ($.data(a, 'original_index') > $.data(b, 'original_index')) { return 1; }
+      return -1;
+    });
+    for (var x = 0; x < comments.length; x++) {
+      $(comment_holder).append(comments[x]);
+    }
+   return false;
+  });
+
+  function sortDate(reverse) {
+    var subset;
+    var reverse = reverse || false;
+    // Date Sort: Sort by date then insert each comment after its parent to maintain the heirarchy
+    // Using mergeSort library for stable sorting
+    comments.mergeSort(function(a, b) {
+      if ($.data(a, 'date') > $.data(b, 'date')) { return 1; }
+      return -1;
+    });
+    if(reverse) comments.reverse();
+    for (var i = 0; i <= max_depth; i++) {
+      subset = comments.filter(function(item) {
+        return $.data(item, 'depth') === i;
+      });
+      for (var x = 0; x < subset.length; x++) {
+        if($.data(subset[x], 'depth') === 0) {
+          $(comment_holder).prepend(subset[x]);
+        } else {
+          $($.data(subset[x], 'parent')).after(subset[x]);  
+        }
+      }
+    }
+  }
 });
