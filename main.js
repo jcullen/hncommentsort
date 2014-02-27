@@ -42,20 +42,18 @@ $(function() {
     $.data(comments[i], 'parent', heirarchy[depth]);
   }
 
-  $(document).on('click', '#sort-date-asc', function(event) {
-    event.preventDefault();
+  $(document).on('click', '#sort-date-asc', function(e) {
+    e.preventDefault();
     sortDate(false);
-    return false;
   });
 
-  $(document).on('click', '#sort-date-desc', function(event) {
-    event.preventDefault();
+  $(document).on('click', '#sort-date-desc', function(e) {
+    e.preventDefault();
     sortDate(true);
-    return false;
   });
 
-  $(document).on('click', '#sort-original', function(event) {
-    event.preventDefault();
+  $(document).on('click', '#sort-original', function(e) {
+    e.preventDefault();
     comments.mergeSort(function(a, b) {
       if ($.data(a, 'original_index') > $.data(b, 'original_index')) { return 1; }
       return -1;
@@ -63,7 +61,6 @@ $(function() {
     for (var x = 0; x < comments.length; x++) {
       $(comment_holder).append(comments[x]);
     }
-   return false;
   });
 
   function sortDate(reverse) {
@@ -84,7 +81,7 @@ $(function() {
         if($.data(subset[x], 'depth') === 0) {
           $(comment_holder).prepend(subset[x]);
         } else {
-          $($.data(subset[x], 'parent')).after(subset[x]);  
+          $($.data(subset[x], 'parent')).after(subset[x]);
         }
       }
     }
